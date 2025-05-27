@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Hero - JSON Viewer</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden; /* To prevent scrollbars on the body if iframe is full height */
+        }
+        #jsonhero-iframe {
+            height: calc(95vh - 185px); /* Adjusted for input area, H1, button, and new instructions */
+            border: none; /* Redundant with frameborder=0 but good practice */
+            width: 100%; /* ensure it takes full width */
+        }
+        h1 {
+            text-align: center;
+            margin-top: 5px; /* Reduced margin */
+            margin-bottom: 5px; /* Reduced margin */
+            font-family: sans-serif;
+            /* height: 5vh; Removed */
+        }
+        /* Style for the input container for better layout */
+        .input-container {
+            padding: 10px;
+            background-color: #f0f0f0; /* Light background for the input area */
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-family: sans-serif;
+        }
+        #usageInstructions {
+            font-size: 0.9em;
+            color: #333;
+            margin-top: 5px;
+            margin-bottom: 10px;
+            text-align: center;
+            font-family: sans-serif;
+        }
+    </style>
+</head>
+<body>
+    <div class="input-container">
+        <label for="jsonInput">Paste your JSON here:</label>
+        <textarea id="jsonInput" rows="5" style="width: 98%; margin: 1%; display: block; border: 1px solid #ccc; border-radius: 4px;"></textarea>
+        <button id="viewJsonButton" style="display: block; margin: 5px auto 10px auto; padding: 10px 15px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">View JSON in Hero</button>
+        <p id="usageInstructions">Paste your JSON into the text area above and click 'View JSON in Hero'. Alternatively, you can directly use the JSON Hero interface below to paste, load a URL, or drag-and-drop a JSON file.</p>
+    </div>
+    <h1>JSON Hero - JSON Viewer</h1>
+    <iframe id="jsonhero-iframe" src="https://jsonhero.io/" frameborder="0"></iframe>
+
+    <script>
+        const jsonInput = document.getElementById('jsonInput');
+        const viewJsonButton = document.getElementById('viewJsonButton');
+        const iframe = document.getElementById('jsonhero-iframe');
+
+        viewJsonButton.addEventListener('click', () => {
+            const jsonString = jsonInput.value.trim();
+            if (!jsonString) {
+                alert('Please paste some JSON.');
+                return;
+            }
+
+            try {
+                // Validate JSON
+                JSON.parse(jsonString); 
+                // Convert to Base64
+                const base64Json = btoa(jsonString);
+                iframe.src = `https://jsonhero.io/new?j=${base64Json}`;
+                // Optional: Clear input after loading
+                // jsonInput.value = ''; 
+            } catch (error) {
+                alert('Invalid JSON! Please check your input. Error: ' + error.message);
+            }
+        });
+    </script>
+</body>
+</html>
