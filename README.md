@@ -1,7 +1,9 @@
 # tools
 
-## iflow 配置
+## 模块说明
 
-本项目包含 iFlow CLI 相关配置，存储在 `iflow/` 目录下：
+| 目录 | 说明 |
+|------|------|
+| [iflow](./iflow/) | iFlow CLI 全局配置，包含 Agents、Skills、Commands、Rules 等配置 |
 
-- **iflow/IFLOW.md** - iFlow 全局上下文配置，目录位置：~/.iflow/IFLOW.md
+<!-- 更多模块可按上方格式继续添加 -->
