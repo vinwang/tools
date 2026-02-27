@@ -13,24 +13,24 @@
 
 ---
 
-## 2. 子代理路由表（强制自动触发｜优化版）
-
-> 说明：
-> - 本表只定义「路由与门禁」，不定义实现细节  
-> - 编码行为为**受控阶段**，不授予任何子代理“自由创作权”  
-> - 所有失败必须按“失败回流规则”回退处理
+## 2. 子代理路由表（强制自动触发）
 
 | 触发条件 | 子代理路由 | 执行策略 / 门禁 |
 |---------|------------|----------------|
-| `.py / .cs / .js / .ts / .cpp / .go / .rs / .php / .java` 等源码文件 | planner → code-reviewer → security-reviewer | **规范 → 设计一致性 → 安全** 三重门禁；禁止未计划代码 |
-| `package.json / go.mod / requirements.txt` | security-reviewer → planner | **依赖风险前置**；高危依赖必须先决策 |
-| Go 项目构建失败 | go-build-resolver → go-reviewer | **构建优先**；禁止绕过构建错误继续流程 |
-| 关键词：代码 / bug / 错误 | planner → build-error-resolver → code-reviewer | **强制 MRE**；仅允许最小修复 |
-| 关键词：架构 / API / 设计 | architect | **强制输出架构图与接口契约** |
-| 关键词：测试 / 部署 / 优化 | planner → e2e-runner | **必须提供性能或稳定性基线对比** |
-| 文档 / 规则 / README | doc-updater | **与代码/规则一致性校验** |
-| 数据库相关（Schema / SQL / Migration） | database-reviewer | **结构 / 索引 / 风险审查** |
-| 未命中任何规则 | planner | **复杂度评分 → 决策是否拆解或拒绝** |
+| 源码文件 + 新增需求 | planner → tdd-guide → code-reviewer → security-reviewer | 先约束行为，再允许实现 |
+| 源码文件 + bug / 错误 | planner → build-error-resolver → code-reviewer | 强制 MRE，禁止顺手改 |
+| 源码文件 + 重构 / 清理 | planner → refactor-cleaner → code-reviewer | 非功能性变更隔离 |
+| package.json / go.mod / requirements.txt | security-reviewer → planner | 依赖风险前置 |
+| Go 项目构建失败 | go-build-resolver → go-reviewer | 构建优先 |
+| 关键词：架构 / API / 设计 | architect → code-reviewer | 架构必须可落地 |
+| 关键词：测试 / 部署 / 优化 | planner → e2e-runner → code-reviewer | 基线必须签字 |
+| 文档 / 规则 / README | doc-updater | 与代码/规则一致 |
+| 数据库相关 | database-reviewer | Schema / 索引 / 风险 |
+| 未命中任何规则 | planner | 复杂度评分 → 拆解或拒绝 |
+
+### 失败回流规则（强制）
+- 任一节点失败 → 回流 planner
+- 禁止跳过失败节点继续流程
 
 ---
 

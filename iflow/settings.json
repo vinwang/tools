@@ -1,0 +1,72 @@
+{
+  "bootAnimationShown": true,
+  "hasIdeOnboardingBeenShown": {
+    "JetBrains": true
+  },
+  "selectedAuthType": "oauth-iflow",
+  "searchApiKey": "sk-4e7e2a959524bc462a94ce95b5d3ccea",
+  "baseUrl": "https://apis.iflow.cn/v1",
+  "apiKey": "sk-4e7e2a959524bc462a94ce95b5d3ccea",
+  "modelName": "glm-5",
+  "cna": "LNX5IY2GXSgCAXBQJgp9g3Tl",
+  "checkpointing": {
+    "enabled": true
+  },
+  "hasViewedOfflineOutput": true,
+  "preferredEditor": "vscode",
+  "mcpServers": {
+    "mcp-probe-kit": {
+      "description": "AI 驱动的开发工具集，涵盖完整开发生命周期：需求分析、功能开发、代码审查、Bug修复、测试生成、Git管理、UI设计等 21+ 工具。支持工作流编排和自动化循环开发，提升开发效率和代码质量。",
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-probe-kit@latest"
+      ]
+    },
+    "mcp-doc": {
+      "description": "Word Doc 集成了 Word 文档处理功能。为 AI 助手提供完整的 Word 文档创建、编辑和管理能力",
+      "command": "uvx",
+      "args": [
+        "--from",
+        "iflow-mcp_mcp-doc",
+        "mcp-doc"
+      ],
+      "disabled": true
+    },
+    "github": {
+      "description": "提供GitHub API访问能力的MCP服务器，支持代码搜索等功能。",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@iflow-mcp/server-github@0.6.2"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "ghp_xx"
+      }
+    },
+    "context7": {
+      "description": "为开发者提供最新技术文档和代码示例的智能检索服务，支持库搜索和文档获取功能。",
+      "command": "npx",
+      "args": [
+        "-y",
+        "context7-mcp@1.0.0"
+      ]
+    },
+    "sequential-thinking": {
+      "description": "一个 MCP 服务器实现，提供了一种通过结构化思维过程进行动态和反射性问题解决的工具。",
+      "command": "npx",
+      "args": [
+        "-y",
+        "server-sequential-thinking@0.6.2"
+      ]
+    },
+    "fetch": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@iflow-mcp/fetch@1.0.2"
+      ],
+      "values": {}
+    }
+  }
+}
