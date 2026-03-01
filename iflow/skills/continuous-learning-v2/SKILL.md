@@ -1,12 +1,21 @@
 ---
 name: continuous-learning-v2
 description: Instinct-based learning system that observes sessions via hooks, creates atomic instincts with confidence scoring, and evolves them into skills/commands/agents.
+origin: ECC
 version: 2.0.0
 ---
 
 # Continuous Learning v2 - Instinct-Based Architecture
 
 An advanced learning system that turns your Claude Code sessions into reusable knowledge through atomic "instincts" - small learned behaviors with confidence scoring.
+
+## When to Activate
+
+- Setting up automatic learning from Claude Code sessions
+- Configuring instinct-based behavior extraction via hooks
+- Tuning confidence thresholds for learned behaviors
+- Reviewing, exporting, or importing instinct libraries
+- Evolving instincts into full skills, commands, or agents
 
 ## What's New in v2
 
@@ -92,7 +101,32 @@ Session Activity
 
 ### 1. Enable Observation Hooks
 
-Add to your `~/.claude/settings.json`:
+Add to your `~/.claude/settings.json`.
+
+**If installed as a plugin** (recommended):
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [{
+      "matcher": "*",
+      "hooks": [{
+        "type": "command",
+        "command": "${CLAUDE_PLUGIN_ROOT}/skills/continuous-learning-v2/hooks/observe.sh pre"
+      }]
+    }],
+    "PostToolUse": [{
+      "matcher": "*",
+      "hooks": [{
+        "type": "command",
+        "command": "${CLAUDE_PLUGIN_ROOT}/skills/continuous-learning-v2/hooks/observe.sh post"
+      }]
+    }]
+  }
+}
+```
+
+**If installed manually** to `~/.claude/skills`:
 
 ```json
 {
@@ -117,18 +151,20 @@ Add to your `~/.claude/settings.json`:
 
 ### 2. Initialize Directory Structure
 
+The Python CLI will create these automatically, but you can also create them manually:
+
 ```bash
 mkdir -p ~/.claude/homunculus/{instincts/{personal,inherited},evolved/{agents,skills,commands}}
 touch ~/.claude/homunculus/observations.jsonl
 ```
 
-### 3. Run the Observer Agent (Optional)
-
-The observer can run in the background analyzing observations:
+### 3. Use the Instinct Commands
 
 ```bash
-# Start background observer
-~/.claude/skills/continuous-learning-v2/agents/start-observer.sh
+/instinct-status     # Show learned instincts with confidence scores
+/evolve              # Cluster related instincts into skills/commands
+/instinct-export     # Export instincts for sharing
+/instinct-import     # Import instincts from others
 ```
 
 ## Commands

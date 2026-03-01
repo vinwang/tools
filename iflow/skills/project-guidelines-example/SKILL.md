@@ -1,6 +1,7 @@
 ---
 name: project-guidelines-example
-description: Example project-specific guidelines template for custom project configurations.
+description: "Example project-specific skill template based on a real production application."
+origin: ECC
 ---
 
 # Project Guidelines Skill (Example)
@@ -8,8 +9,6 @@ description: Example project-specific guidelines template for custom project con
 This is an example of a project-specific skill. Use this as a template for your own projects.
 
 Based on a real production application: [Zenith](https://zenith.chat) - AI-powered customer discovery platform.
-
----
 
 ## When to Use
 
@@ -348,4 +347,3 @@ SUPABASE_KEY=eyJ...
 - `backend-patterns.md` - API and database patterns
 - `frontend-patterns.md` - React and Next.js patterns
 - `tdd-workflow/` - Test-driven development methodology
-

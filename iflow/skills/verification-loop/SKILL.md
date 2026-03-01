@@ -1,6 +1,7 @@
 ---
 name: verification-loop
-description: Comprehensive verification system for ensuring code quality and passing all quality gates.
+description: "A comprehensive verification system for Claude Code sessions."
+origin: ECC
 ---
 
 # Verification Loop Skill
@@ -123,4 +124,3 @@ Run: /verify
 
 This skill complements PostToolUse hooks but provides deeper verification.
 Hooks catch issues immediately; this skill provides comprehensive review.
-
