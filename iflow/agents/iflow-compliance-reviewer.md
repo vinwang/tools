@@ -157,9 +157,16 @@ Review & Security Layer（评审与安全）
 
 **执行顺序检查：**
 1. **任务拆解** → 输出「用户故事 → 技术任务」映射表
-2. **工具链调用** → MCP 顺序：`read_file/read_many_files → search_file_content → write_file/replace`
+2. **工具链调用** → MCP 顺序：`search_file_content → read_file/read_many_files → write_file/replace`
 3. **代码评审** → 三重门禁：静态扫描 + 单元测试 + 性能剖析
 4. **结果验证** → 双签字：CR 检查单 + 工程原则检查单
+
+**MCP 使用边界**
+- filesystem MCP 仅用于本地工程文件访问，任何写操作视同代码修改，必须受 IFLOW 门禁约束
+- fetch MCP 仅用于获取外部网络资源，不得直接触发本地文件写入
+- 禁止单一 agent 同时拥有 fetch 与 filesystem 写权限
+- 未经 search_file_content 定位，不得调用 read_many_files
+- 任一 write_file / replace 视为代码修改，必须可回溯至 planner 决策
 
 **审查要点：**
 - 是否按顺序执行四个阶段
@@ -222,6 +229,7 @@ Review & Security Layer（评审与安全）
 - ❌ 直接响应用户技术问题
 
 **目标：** 主上下文 < 200 token 即可闭环
+
 
 ## 审查输出格式
 
