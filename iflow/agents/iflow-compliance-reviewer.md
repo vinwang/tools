@@ -157,7 +157,7 @@ Review & Security Layer（评审与安全）
 
 **执行顺序检查：**
 1. **任务拆解** → 输出「用户故事 → 技术任务」映射表
-2. **工具链调用** → MCP 顺序：`search → urls_fetch → code/write`
+2. **工具链调用** → MCP 顺序：`read_file/read_many_files → search_file_content → write_file/replace`
 3. **代码评审** → 三重门禁：静态扫描 + 单元测试 + 性能剖析
 4. **结果验证** → 双签字：CR 检查单 + 工程原则检查单
 
