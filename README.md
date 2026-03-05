@@ -17,7 +17,7 @@ iFlow CLI 是一个支持子代理路由的 AI 辅助开发工具。
 
 ```bash
 # 使用 iFlow CLI
-claude-code
+iflow
 ```
 
 ### OpenClaw
