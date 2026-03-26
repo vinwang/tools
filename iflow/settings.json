@@ -49,7 +49,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "context7-mcp@1.0.0"
+        "@iflow-mcp/context7-mcp@1.0.0"
       ]
     },
     "sequential-thinking": {
@@ -57,7 +57,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "server-sequential-thinking@0.6.2"
+        "@iflow-mcp/server-sequential-thinking@0.6.2"
       ]
     },
     "fetch": {
