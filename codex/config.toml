@@ -1,0 +1,70 @@
+model_provider = "custom"
+model = "gpt-5.4"
+disable_response_storage = true
+model_reasoning_effort = "high"
+approvals_reviewer = "user"
+
+[model_providers]
+[model_providers.custom]
+name = "custom"
+wire_api = "responses"
+requires_openai_auth = true
+base_url = "https://ice.v.ua"
+
+[windows]
+sandbox = "elevated"
+
+[features]
+multi_agent = true
+
+[mcp_servers]
+[mcp_servers.context7]
+command = "npx"
+args = ["-y", "@upstash/context7-mcp"]
+startup_timeout_sec = 60
+
+[mcp_servers.memory]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-memory"]
+startup_timeout_sec = 60
+
+[mcp_servers.github]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-github"]
+startup_timeout_sec = 60
+env = { GITHUB_PERSONAL_ACCESS_TOKEN = "xxx" }
+
+[mcp_servers.github.tools.search_code]
+approval_mode = "approve"
+
+[mcp_servers.github.tools.get_file_contents]
+approval_mode = "approve"
+
+[mcp_servers.github.tools.search_repositories]
+approval_mode = "approve"
+
+[mcp_servers.sequential-thinking]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+startup_timeout_sec = 60
+
+[mcp_servers.playwright]
+startup_timeout_sec = 60
+args = ["@playwright/mcp@latest"]
+command = "npx"
+
+[mcp_servers.lanhu]
+url = "http://127.0.0.1:8000/mcp?role=Developer&name=dreame"
+startup_timeout_sec = 60
+
+[mcp_servers.playwright.tools.browser_navigate]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_run_code]
+approval_mode = "approve"
+
+[mcp_servers.playwright.tools.browser_close]
+approval_mode = "approve"
+
+[notice]
+hide_full_access_warning = true
