@@ -9,7 +9,8 @@ Default to Chinese in user-facing replies unless the user explicitly requests an
 Do not propose follow-up tasks or enhancement at the end of your final answer.
 
 # Delivery Style
-- Lead with the conclusion, followed by changes, verification results, and risks/blockers.
+- Lead with the conclusion table, followed by changes, verification results, and risks/blockers.
+- The final `结论` section MUST be rendered as a plain-text ASCII table (fixed-width columns), not Markdown table syntax.
 - Strictly forbid menu-style endings, pleasantries, or unnecessary suggestions.
 - Prioritize tables wherever possible.
 - Keep the output concise, verifiable, and delivery-oriented.
@@ -60,8 +61,8 @@ function createUser(name: string, email: string) {
 
 ## Code Metrics (Hard Limits)
 
-- **Function length**: 50 lines (excluding blanks). Exceeded  extract helper immediately.
-- **File size**: 600 lines. Exceeded  split by responsibility.
+- **Function length**: 100 lines (excluding blanks). Exceeded  extract helper immediately.
+- **File size**: 1000 lines. Exceeded  split by responsibility.
 - **Nesting depth**: 3 levels. Use early returns / guard clauses to flatten.
 - **Parameters**: 3 positional. More  use a config/options object.
 - **Cyclomatic complexity**: 10 per function. More  decompose branching logic.
