@@ -1,0 +1,706 @@
+[CmdletBinding()]
+param(
+  [switch]$InstallTask,
+  [switch]$UninstallTask,
+  [string]$PreferredAuthId = "",
+  [string]$PreferredAccount = ""
+)
+
+$ErrorActionPreference = "Stop"
+try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch {}
+
+function Get-SelfPath {
+  try {
+    $procPath = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+    if ($procPath) {
+      $procName = [System.IO.Path]::GetFileName($procPath).ToLowerInvariant()
+      if ($procName -notin @("powershell.exe", "pwsh.exe", "powershell_ise.exe")) {
+        return $procPath
+      }
+    }
+  } catch {}
+
+  try {
+    if ($MyInvocation.MyCommand.Path) {
+      return $MyInvocation.MyCommand.Path
+    }
+  } catch {}
+
+  try {
+    return [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+  } catch {}
+
+  throw "Cannot determine current path."
+}
+
+$SelfPath   = Get-SelfPath
+$ScriptRoot = Split-Path -Parent $SelfPath
+$LogDir     = Join-Path $ScriptRoot "logs"
+
+if (-not (Test-Path -LiteralPath $LogDir)) {
+  New-Item -ItemType Directory -Path $LogDir -Force | Out-Null
+}
+
+$Script:LogPath = Join-Path $LogDir ("refresh-{0}.log" -f (Get-Date -Format "yyyyMMdd-HHmmss"))
+
+$Config = [ordered]@{
+  ManagementKey    = "123456"
+  BaseUrl          = "http://localhost:8317/v0/management"
+  QuotaUrl         = "https://chatgpt.com/backend-api/wham/usage"
+  AlertWebhook     = ""
+  TaskName         = "CLIProxyAPI-Codex-Refresh"
+  EveryHours       = 6
+  TimeoutSec       = 120
+  PopupOnSuccess   = $false
+  PopupOnFailure   = $true
+  SuccessTitle     = "OK"
+  FailureTitle     = "ALARM"
+  PreferredAuthId  = ""
+  PreferredAccount = ""
+}
+
+if ($PreferredAuthId)   { $Config.PreferredAuthId = $PreferredAuthId }
+if ($PreferredAccount)  { $Config.PreferredAccount = $PreferredAccount }
+
+function Write-Log {
+  param(
+    [string]$Message,
+    [string]$Level = "INFO"
+  )
+
+  $line = "{0} [{1}] {2}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $Level, $Message
+  try { Add-Content -LiteralPath $Script:LogPath -Value $line -Encoding UTF8 } catch {}
+  Write-Host $line
+}
+
+function Get-ErrorMessage {
+  param(
+    [Parameter(Mandatory = $true)]
+    $ErrorRecord
+  )
+
+  $msg = $ErrorRecord.Exception.Message
+
+  try {
+    $resp = $ErrorRecord.Exception.Response
+    if ($resp) {
+      $stream = $resp.GetResponseStream()
+      if ($stream) {
+        $reader = New-Object System.IO.StreamReader($stream)
+        $body = $reader.ReadToEnd()
+        $reader.Close()
+        if (-not [string]::IsNullOrWhiteSpace($body)) {
+          $msg = "$msg | Response=$body"
+        }
+      }
+    }
+  } catch {}
+
+  return $msg
+}
+
+function Show-Alert {
+  param(
+    [string]$Title,
+    [string]$Message,
+    [ValidateSet("Info", "Warn", "Error")]
+    [string]$Type = "Info"
+  )
+
+  if (-not [Environment]::UserInteractive) {
+    return
+  }
+
+  try {
+    Add-Type -AssemblyName System.Windows.Forms -ErrorAction Stop
+    $icon = [System.Windows.Forms.MessageBoxIcon]::Information
+    switch ($Type) {
+      "Warn"  { $icon = [System.Windows.Forms.MessageBoxIcon]::Warning }
+      "Error" { $icon = [System.Windows.Forms.MessageBoxIcon]::Error }
+    }
+
+    [void][System.Windows.Forms.MessageBox]::Show(
+      $Message,
+      $Title,
+      [System.Windows.Forms.MessageBoxButtons]::OK,
+      $icon
+    )
+    return
+  } catch {}
+
+  try {
+    $flags = 0x40
+    if ($Type -eq "Warn")  { $flags = 0x30 }
+    if ($Type -eq "Error") { $flags = 0x10 }
+
+    $ws = New-Object -ComObject WScript.Shell
+    [void]$ws.Popup($Message, 0, $Title, $flags)
+  } catch {}
+}
+
+function Send-WebhookAlert {
+  param(
+    [string]$Title,
+    [string]$Text
+  )
+
+  if ([string]::IsNullOrWhiteSpace($Config.AlertWebhook)) {
+    return
+  }
+
+  try {
+    $payload = @{
+      title = $Title
+      text  = $Text
+    } | ConvertTo-Json -Depth 5
+
+    Invoke-RestMethod `
+      -Uri $Config.AlertWebhook `
+      -Method Post `
+      -Body $payload `
+      -ContentType "application/json; charset=utf-8" `
+      -TimeoutSec 15 | Out-Null
+  } catch {
+    Write-Log ("Webhook failed: " + (Get-ErrorMessage $_)) "WARN"
+  }
+}
+
+function Test-True {
+  param($Value)
+
+  if ($null -eq $Value) { return $false }
+  if ($Value -is [bool]) { return $Value }
+
+  $s = ([string]$Value).Trim().ToLowerInvariant()
+  return ($s -in @("1", "true", "yes", "y", "on"))
+}
+
+function Get-DisplayName {
+  param([object]$Item)
+
+  foreach ($name in @("email", "account", "label", "name", "id")) {
+    try {
+      $v = $Item.$name
+      if (-not [string]::IsNullOrWhiteSpace([string]$v)) {
+        return [string]$v
+      }
+    } catch {}
+  }
+
+  return ""
+}
+
+function Get-ManagementHeaders {
+  return @{
+    Authorization = "Bearer $($Config.ManagementKey)"
+  }
+}
+
+function Invoke-JsonRequest {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Uri,
+
+    [ValidateSet("GET", "POST", "PUT", "DELETE", "PATCH")]
+    [string]$Method = "GET",
+
+    [hashtable]$Headers = $null,
+
+    $Body = $null,
+
+    [int]$TimeoutSec = 120
+  )
+
+  try {
+    if ($null -ne $Body) {
+      $payload = $Body
+      if ($Body -isnot [string]) {
+        $payload = $Body | ConvertTo-Json -Depth 100
+      }
+
+      return Invoke-RestMethod `
+        -Uri $Uri `
+        -Method $Method `
+        -Headers $Headers `
+        -Body $payload `
+        -ContentType "application/json; charset=utf-8" `
+        -TimeoutSec $TimeoutSec
+    }
+
+    return Invoke-RestMethod `
+      -Uri $Uri `
+      -Method $Method `
+      -Headers $Headers `
+      -TimeoutSec $TimeoutSec
+  } catch {
+    throw (Get-ErrorMessage $_)
+  }
+}
+
+function Test-TaskExists {
+  param([string]$TaskName)
+
+  & schtasks.exe /Query /TN $TaskName 1>$null 2>$null
+  return ($LASTEXITCODE -eq 0)
+}
+
+function Install-RefreshTask {
+  $self = Get-SelfPath
+  $ext  = [System.IO.Path]::GetExtension($self).ToLowerInvariant()
+
+  if ($ext -eq ".exe") {
+    $command = "`"$self`""
+  }
+  else {
+    $engine = "powershell.exe"
+    try {
+      $procPath = (Get-Process -Id $PID -ErrorAction Stop).Path
+      $procName = [System.IO.Path]::GetFileName($procPath).ToLowerInvariant()
+      if ($procName -in @("powershell.exe", "pwsh.exe")) {
+        $engine = $procPath
+      }
+    } catch {}
+
+    $command = "`"$engine`" -NoProfile -ExecutionPolicy Bypass -File `"$self`""
+  }
+
+  $args = @(
+    "/Create",
+    "/SC", "HOURLY",
+    "/MO", "$($Config.EveryHours)",
+    "/TN", $Config.TaskName,
+    "/TR", $command,
+    "/F",
+    "/IT"
+  )
+
+  $output = & schtasks.exe @args 2>&1
+  if ($LASTEXITCODE -ne 0) {
+    throw "Task creation failed: $output"
+  }
+
+  Write-Log "Task created: $($Config.TaskName)"
+}
+
+function Uninstall-RefreshTask {
+  if (-not (Test-TaskExists -TaskName $Config.TaskName)) {
+    Write-Log "Task not found: $($Config.TaskName)"
+    return
+  }
+
+  $output = & schtasks.exe /Delete /TN $Config.TaskName /F 2>&1
+  if ($LASTEXITCODE -ne 0) {
+    throw "Task deletion failed: $output"
+  }
+
+  Write-Log "Task deleted: $($Config.TaskName)"
+}
+
+function Get-DateValue {
+  param([object]$Item)
+
+  foreach ($name in @("updated_at", "modtime", "created_at")) {
+    try {
+      $p = $Item.PSObject.Properties[$name]
+      if ($p -and $p.Value) {
+        return [datetime]$p.Value
+      }
+    } catch {}
+  }
+
+  return [datetime]::MinValue
+}
+
+function Select-CodexAuthFile {
+  param(
+    [Parameter(Mandatory = $true)]
+    [object[]]$Files,
+
+    [string]$PreferredAuthId = "",
+
+    [string]$PreferredAccount = ""
+  )
+
+  $candidates = @($Files) | Where-Object {
+    $_ -and
+    (($_.type -eq "codex") -or ($_.provider -eq "codex")) -and
+    ((-not $_.status) -or ($_.status -eq "active")) -and
+    (-not (Test-True $_.disabled)) -and
+    (-not (Test-True $_.unavailable))
+  }
+
+  if (-not $candidates -or $candidates.Count -eq 0) {
+    throw "No active Codex auth file found."
+  }
+
+  if ($PreferredAuthId) {
+    $hit = $candidates | Where-Object {
+      ($_.id -eq $PreferredAuthId) -or ($_.name -eq $PreferredAuthId)
+    }
+
+    if (-not $hit) {
+      throw "PreferredAuthId not found: $PreferredAuthId"
+    }
+
+    return ($hit | Sort-Object @{ Expression = { Get-DateValue $_ } } -Descending | Select-Object -First 1)
+  }
+
+  if ($PreferredAccount) {
+    $hit = $candidates | Where-Object {
+      ($_.email -eq $PreferredAccount) -or
+      ($_.account -eq $PreferredAccount) -or
+      ($_.label -eq $PreferredAccount)
+    }
+
+    if (-not $hit) {
+      throw "PreferredAccount not found: $PreferredAccount"
+    }
+
+    return ($hit | Sort-Object @{ Expression = { Get-DateValue $_ } } -Descending | Select-Object -First 1)
+  }
+
+  $scored = foreach ($f in $candidates) {
+    $prefix = 0
+    if (($f.name -like "codex-*") -or ($f.id -like "codex-*")) {
+      $prefix = 1
+    }
+
+    [pscustomobject]@{
+      Prefix = $prefix
+      Time   = Get-DateValue $f
+      File   = $f
+    }
+  }
+
+  $picked = $scored | Sort-Object Prefix, Time -Descending | Select-Object -First 1
+  if (-not $picked) {
+    throw "No Codex auth file selected."
+  }
+
+  return $picked.File
+}
+
+function Read-JsonFile {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$Path
+  )
+
+  if ([string]::IsNullOrWhiteSpace($Path)) {
+    throw "Auth file path is empty."
+  }
+
+  if (-not (Test-Path -LiteralPath $Path)) {
+    throw "Auth file not found: $Path"
+  }
+
+  $raw = Get-Content -LiteralPath $Path -Raw -Encoding UTF8
+  if ([string]::IsNullOrWhiteSpace($raw)) {
+    throw "Auth file is empty: $Path"
+  }
+
+  try {
+    return ($raw | ConvertFrom-Json)
+  } catch {
+    throw "Auth file is not valid JSON: $Path | $($_.Exception.Message)"
+  }
+}
+
+function Find-StringPropertyRecursive {
+  param(
+    [Parameter(Mandatory = $true)]
+    $InputObject,
+
+    [Parameter(Mandatory = $true)]
+    [string[]]$Names
+  )
+
+  if ($null -eq $InputObject) { return $null }
+  if ($InputObject -is [string]) { return $null }
+  if ($InputObject -is [ValueType]) { return $null }
+
+  if ($InputObject -is [System.Collections.IDictionary]) {
+    foreach ($key in $InputObject.Keys) {
+      foreach ($name in $Names) {
+        if ([string]$key -ieq $name) {
+          $v = $InputObject[$key]
+          if ($v -is [string] -and -not [string]::IsNullOrWhiteSpace($v)) {
+            return $v
+          }
+        }
+      }
+    }
+
+    foreach ($key in $InputObject.Keys) {
+      $result = Find-StringPropertyRecursive -InputObject $InputObject[$key] -Names $Names
+      if ($result) { return $result }
+    }
+
+    return $null
+  }
+
+  $props = $null
+  try { $props = $InputObject.PSObject.Properties } catch {}
+
+  if ($props -and $props.Count -gt 0) {
+    foreach ($name in $Names) {
+      $match = $props | Where-Object { $_.Name -ieq $name } | Select-Object -First 1
+      if ($match) {
+        if ($match.Value -is [string] -and -not [string]::IsNullOrWhiteSpace([string]$match.Value)) {
+          return [string]$match.Value
+        }
+      }
+    }
+
+    foreach ($p in $props) {
+      $result = Find-StringPropertyRecursive -InputObject $p.Value -Names $Names
+      if ($result) { return $result }
+    }
+
+    return $null
+  }
+
+  if ($InputObject -is [System.Collections.IEnumerable]) {
+    foreach ($item in $InputObject) {
+      $result = Find-StringPropertyRecursive -InputObject $item -Names $Names
+      if ($result) { return $result }
+    }
+  }
+
+  return $null
+}
+
+function Get-AccessTokenFromAuthData {
+  param(
+    [Parameter(Mandatory = $true)]
+    $AuthData,
+
+    [Parameter(Mandatory = $true)]
+    [string]$Path
+  )
+
+  $token = Find-StringPropertyRecursive -InputObject $AuthData -Names @(
+    "access_token",
+    "accessToken",
+    "chatgpt_access_token",
+    "chatgptAccessToken",
+    "bearer_token",
+    "bearerToken",
+    "auth_token",
+    "authToken"
+  )
+
+  if (-not $token) {
+    $authHeader = Find-StringPropertyRecursive -InputObject $AuthData -Names @("authorization", "Authorization")
+    if ($authHeader -and $authHeader -match "Bearer\s+(.+)$") {
+      $token = $matches[1]
+    }
+  }
+
+  if ($token -and $token -match "^\s*Bearer\s+(.+)$") {
+    $token = $matches[1]
+  }
+
+  if (-not $token -or [string]::IsNullOrWhiteSpace($token)) {
+    throw "Access token not found in auth file: $Path"
+  }
+
+  return $token.Trim()
+}
+
+function Invoke-QuotaRefresh {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$AccessToken
+  )
+
+  $headers = @{
+    Authorization = "Bearer $AccessToken"
+    Accept        = "application/json, text/plain, */*"
+    "User-Agent"  = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+    Origin        = "https://chatgpt.com"
+    Referer       = "https://chatgpt.com/"
+  }
+
+  try {
+    return Invoke-RestMethod `
+      -Uri $Config.QuotaUrl `
+      -Method Get `
+      -Headers $headers `
+      -TimeoutSec $Config.TimeoutSec
+  } catch {
+    throw (Get-ErrorMessage $_)
+  }
+}
+
+function Invoke-TokenRefresh {
+  param(
+    [Parameter(Mandatory)] [string]$RefreshToken
+  )
+  $body = @{
+    grant_type    = "refresh_token"
+    client_id     = "app_EMoamEEZ73f0CkXaXp7hrann"
+    refresh_token = $RefreshToken
+  } | ConvertTo-Json
+
+  return Invoke-RestMethod `
+    -Uri "https://auth0.openai.com/oauth/token" `
+    -Method Post `
+    -Body $body `
+    -ContentType "application/json; charset=utf-8" `
+    -TimeoutSec $Config.TimeoutSec
+}
+
+function Update-AuthFile {
+  param(
+    [Parameter(Mandatory)] [string]$Path,
+    [Parameter(Mandatory)] [string]$AccessToken,
+    [Parameter(Mandatory)] [string]$IdToken,
+    [string]$NewRefreshToken
+  )
+  $raw = Get-Content -LiteralPath $Path -Raw -Encoding UTF8
+  $data = $raw | ConvertFrom-Json
+
+  if ($data -is [array]) {
+    $obj = $data[0]
+  } else {
+    $obj = $data
+  }
+
+  if ($obj.PSObject.Properties["tokens"]) {
+    $obj.tokens.access_token = $AccessToken
+    $obj.tokens.id_token = $IdToken
+    if ($NewRefreshToken) { $obj.tokens.refresh_token = $NewRefreshToken }
+  } else {
+    $obj.access_token = $AccessToken
+    $obj.id_token = $IdToken
+    if ($NewRefreshToken) { $obj.refresh_token = $NewRefreshToken }
+  }
+
+  $json = ConvertTo-Json -InputObject $data -Depth 100
+  [System.IO.File]::WriteAllText($Path, $json, [System.Text.Encoding]::UTF8)
+}
+
+function Main {
+  Write-Log "Started. Self=$SelfPath"
+
+  if ($InstallTask) {
+    Install-RefreshTask
+    return
+  }
+
+  if ($UninstallTask) {
+    Uninstall-RefreshTask
+    return
+  }
+
+  $authUrl = ($Config.BaseUrl.TrimEnd("/") + "/auth-files")
+  Write-Log "Loading auth files: $authUrl"
+
+  $resp = Invoke-JsonRequest `
+    -Uri $authUrl `
+    -Method GET `
+    -Headers (Get-ManagementHeaders) `
+    -TimeoutSec $Config.TimeoutSec
+
+  $files = @()
+  if ($null -ne $resp -and $null -ne $resp.files) {
+    $files = @($resp.files)
+  }
+
+  if ($files.Count -eq 0) {
+    throw "No auth files returned from management API."
+  }
+
+  Write-Log ("Auth file count: {0}" -f $files.Count)
+
+  $candidates = @($files) | Where-Object {
+    $_ -and
+    (($_.type -eq "codex") -or ($_.provider -eq "codex")) -and
+    ((-not $_.status) -or ($_.status -eq "active")) -and
+    (-not (Test-True $_.disabled)) -and
+    (-not (Test-True $_.unavailable))
+  }
+
+  if (-not $candidates -or $candidates.Count -eq 0) {
+    throw "No active Codex auth file found."
+  }
+
+  $successCount = 0
+  $failCount = 0
+  $failList = @()
+
+  foreach ($selected in $candidates) {
+    $displayName = Get-DisplayName $selected
+
+    Write-Log ("Refreshing: account={0}; id={1}" -f $displayName, $selected.id)
+
+    try {
+      $authData = Read-JsonFile -Path $selected.path
+
+      # Refresh OAuth tokens if refresh_token is available
+      $refreshToken = Find-StringPropertyRecursive -InputObject $authData -Names @("refresh_token","refreshToken")
+      if ($refreshToken) {
+        Write-Log ("  Refreshing OAuth tokens for: {0}" -f $displayName)
+        $tokenResp = Invoke-TokenRefresh -RefreshToken $refreshToken
+
+        $newRt = if ($tokenResp.refresh_token) { $tokenResp.refresh_token } else { $null }
+        Update-AuthFile -Path $selected.path `
+          -AccessToken $tokenResp.access_token `
+          -IdToken $tokenResp.id_token `
+          -NewRefreshToken $newRt
+
+        Write-Log ("  OAuth tokens refreshed OK for: {0}" -f $displayName)
+
+        $accessToken = $tokenResp.access_token
+      } else {
+        $accessToken = Get-AccessTokenFromAuthData -AuthData $authData -Path $selected.path
+      }
+
+      $quota = Invoke-QuotaRefresh -AccessToken $accessToken
+      $successCount++
+      Write-Log ("  OK: {0}" -f $displayName)
+    } catch {
+      $failCount++
+      $failList += $displayName
+      Write-Log ("  FAIL: {0} | {1}" -f $displayName, (Get-ErrorMessage $_)) "WARN"
+    }
+  }
+
+  Write-Log ("Quota refresh done. Total={0}, Success={1}, Fail={2}" -f $candidates.Count, $successCount, $failCount)
+
+  if ($failCount -gt 0) {
+    Write-Log ("Failed accounts: {0}" -f ($failList -join ", ")) "WARN"
+  }
+
+  $ok = "Refresh done. Total=$($candidates.Count) Success=$successCount Fail=$failCount`nLog=$Script:LogPath"
+  Send-WebhookAlert -Title $Config.SuccessTitle -Text $ok
+
+  if ($failCount -gt 0 -and $Config.PopupOnFailure) {
+    Show-Alert -Title $Config.FailureTitle -Message "Failed accounts: $($failList -join ', ')`n$ok" -Type Warn
+  } elseif ($Config.PopupOnSuccess) {
+    Show-Alert -Title $Config.SuccessTitle -Message $ok -Type Info
+  }
+}
+
+try {
+  Main
+  exit 0
+}
+catch {
+  $msg = Get-ErrorMessage $_
+  Write-Log $msg "ERROR"
+
+  $final = $msg
+  if ($final -notmatch "Log=") {
+    $final = "$final`nLog=$Script:LogPath"
+  }
+
+  Send-WebhookAlert -Title $Config.FailureTitle -Text $final
+
+  if ($Config.PopupOnFailure) {
+    Show-Alert -Title $Config.FailureTitle -Message $final -Type Error
+  }
+
+  exit 1
+}
