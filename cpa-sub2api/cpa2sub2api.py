@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import re
 import ssl
 import sys
 from dataclasses import dataclass
@@ -55,6 +56,10 @@ def script_dir() -> Path:
 
 
 def default_config_template() -> dict[str, Any]:
+    """Build the default config.json template.
+
+    @returns Default configuration structure written on first run
+    """
     return {
         "version": CONFIG_VERSION,
         "sub2api": {
@@ -114,6 +119,14 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--file-regex",
+        dest="file_regex",
+        help=(
+            "Only process JSON files whose relative path or file name matches this regular expression "
+            "when the input path is a directory."
+        ),
+    )
+    parser.add_argument(
         "--strict",
         action="store_true",
         help="Fail immediately on the first invalid or unsupported input file.",
@@ -146,6 +159,11 @@ def resolve_paths(args: argparse.Namespace) -> tuple[Path, Path, Path, Path | No
 
 
 def truncate_account_name(name: str) -> str:
+    """Trim and limit an account name for sub2api.
+
+    @param name Raw account name candidate
+    @returns Safe account name within the max length limit
+    """
     trimmed = name.strip()
     if not trimmed:
         return "imported-account"
@@ -153,6 +171,11 @@ def truncate_account_name(name: str) -> str:
 
 
 def build_account_name(source_path: Path) -> str:
+    """Build the exported account name from a source file path.
+
+    @param source_path Source JSON file path
+    @returns Normalized account name
+    """
     return truncate_account_name(source_path.stem)
 
 
@@ -199,6 +222,11 @@ def build_extra(provider: str, source_path: Path, **extra: Any) -> dict[str, Any
 
 
 def parse_json_object(raw: str) -> dict[str, Any]:
+    """Parse a JSON string and require a top-level object.
+
+    @param raw Raw JSON text
+    @returns Parsed JSON object
+    """
     try:
         data = json.loads(raw)
     except json.JSONDecodeError as exc:
@@ -209,6 +237,11 @@ def parse_json_object(raw: str) -> dict[str, Any]:
 
 
 def parse_datetime(value: Any) -> datetime | None:
+    """Parse supported date-like values into a timezone-aware datetime.
+
+    @param value Datetime, timestamp, or string representation
+    @returns Parsed datetime or None when parsing fails
+    """
     if value is None:
         return None
 
@@ -292,6 +325,11 @@ def join_scope(value: Any) -> str:
 
 
 def decode_jwt_payload(token: str) -> dict[str, Any]:
+    """Decode the payload section of a JWT token.
+
+    @param token JWT token string
+    @returns Parsed JWT payload claims object
+    """
     token = token.strip()
     if not token:
         return {}
@@ -429,6 +467,12 @@ def convert_codex(data: dict[str, Any], source_path: Path) -> dict[str, Any]:
 
 
 def convert_gemini(data: dict[str, Any], source_path: Path) -> dict[str, Any]:
+    """Convert a CLIProxyAPI Gemini account into a sub2api import account.
+
+    @param data Parsed CPA source payload
+    @param source_path Source file path used for naming and trace metadata
+    @returns Converted sub2api account record
+    """
     token = data.get("token")
     if not isinstance(token, dict):
         raise ConversionError("gemini token object is required")
@@ -483,6 +527,12 @@ def convert_gemini(data: dict[str, Any], source_path: Path) -> dict[str, Any]:
 
 
 def convert_claude(data: dict[str, Any], source_path: Path) -> dict[str, Any]:
+    """Convert a CLIProxyAPI Claude account into a sub2api import account.
+
+    @param data Parsed CPA source payload
+    @param source_path Source file path used for naming and trace metadata
+    @returns Converted sub2api account record
+    """
     access_token = ensure_string(data, "access_token")
     refresh_token = ensure_string(data, "refresh_token")
     if not access_token:
@@ -519,6 +569,12 @@ def convert_claude(data: dict[str, Any], source_path: Path) -> dict[str, Any]:
 
 
 def convert_antigravity(data: dict[str, Any], source_path: Path) -> dict[str, Any]:
+    """Convert a CLIProxyAPI Antigravity account into a sub2api import account.
+
+    @param data Parsed CPA source payload
+    @param source_path Source file path used for naming and trace metadata
+    @returns Converted sub2api account record
+    """
     access_token = ensure_string(data, "access_token")
     refresh_token = ensure_string(data, "refresh_token")
     if not access_token:
@@ -581,19 +637,69 @@ CONVERTERS: dict[str, Callable[[dict[str, Any], Path], dict[str, Any]]] = {
 
 
 def relative_output_path(source_file: Path, input_path: Path) -> Path:
+    """Compute the output path relative to the chosen input path.
+
+    @param source_file Source JSON file path
+    @param input_path Input file or directory path
+    @returns Relative output path used under the output directory
+    """
     if input_path.is_file():
         return Path(source_file.name)
     return source_file.relative_to(input_path)
 
 
 def is_hidden_relative_path(path: Path) -> bool:
+    """Detect whether a relative path contains hidden segments.
+
+    @param path Relative path to inspect
+    @returns True when any path segment starts with a dot
+    """
     return any(part.startswith(".") for part in path.parts)
 
 
-def iter_input_files(input_path: Path, excluded_paths: Iterable[Path] = ()) -> Iterable[Path]:
+def compile_file_regex(pattern: str | None) -> re.Pattern[str] | None:
+    """Compile the optional file selection regular expression.
+
+    @param pattern Regular expression text from CLI arguments
+    @returns Compiled regex pattern or None when no pattern is provided
+    """
+    if pattern is None:
+        return None
+    try:
+        return re.compile(pattern)
+    except re.error as exc:
+        raise ValueError(f"invalid --file-regex: {exc}") from exc
+
+
+def matches_file_regex(file_path: Path, input_path: Path, file_regex: re.Pattern[str] | None) -> bool:
+    """Check whether a source file matches the optional selection regex.
+
+    @param file_path Candidate source file path
+    @param input_path Input file or directory path
+    @param file_regex Optional compiled regular expression
+    @returns True when the file should be processed
+    """
+    if file_regex is None:
+        return True
+    relative_path = file_path.name if input_path.is_file() else file_path.relative_to(input_path).as_posix()
+    return bool(file_regex.search(relative_path) or file_regex.search(file_path.name))
+
+
+def iter_input_files(
+    input_path: Path,
+    excluded_paths: Iterable[Path] = (),
+    file_regex: re.Pattern[str] | None = None,
+) -> Iterable[Path]:
+    """Iterate source JSON files under the selected input path.
+
+    @param input_path Input file or directory path
+    @param excluded_paths Paths that must not be processed
+    @param file_regex Optional compiled regex used to filter directory entries
+    @returns Iterable of source JSON files to convert
+    """
     excluded = {path.resolve() for path in excluded_paths}
     if input_path.is_file():
-        if input_path.resolve() not in excluded:
+        if input_path.resolve() not in excluded and matches_file_regex(input_path, input_path, file_regex):
             yield input_path
         return
     for path in sorted(input_path.rglob("*.json")):
@@ -601,11 +707,17 @@ def iter_input_files(input_path: Path, excluded_paths: Iterable[Path] = ()) -> I
             path.is_file()
             and path.resolve() not in excluded
             and not is_hidden_relative_path(path.relative_to(input_path))
+            and matches_file_regex(path, input_path, file_regex)
         ):
             yield path
 
 
 def convert_source_file(source_path: Path) -> tuple[str, dict[str, Any]]:
+    """Convert a single CPA source file into a provider name and account record.
+
+    @param source_path Source JSON file path
+    @returns Provider name and converted sub2api account record
+    """
     raw = source_path.read_text(encoding="utf-8")
     data = parse_json_object(raw)
 
@@ -621,11 +733,22 @@ def convert_source_file(source_path: Path) -> tuple[str, dict[str, Any]]:
 
 
 def write_payload(output_path: Path, payload: dict[str, Any]) -> None:
+    """Write a sub2api payload to disk as formatted JSON.
+
+    @param output_path Destination JSON file path
+    @param payload Payload dictionary to write
+    @returns None
+    """
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 def create_config_template(config_path: Path) -> dict[str, Any]:
+    """Create a default config.json file on disk.
+
+    @param config_path Destination config file path
+    @returns The config structure that was written
+    """
     config_path.parent.mkdir(parents=True, exist_ok=True)
     template = default_config_template()
     config_path.write_text(json.dumps(template, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
@@ -633,6 +756,11 @@ def create_config_template(config_path: Path) -> dict[str, Any]:
 
 
 def load_config(config_path: Path) -> tuple[dict[str, Any], bool]:
+    """Load config.json, creating a template when it does not exist.
+
+    @param config_path Config file path
+    @returns Loaded config and a flag indicating whether a template was created
+    """
     if not config_path.exists():
         return create_config_template(config_path), True
 
@@ -658,6 +786,11 @@ def load_config(config_path: Path) -> tuple[dict[str, Any], bool]:
 
 
 def validate_import_config(config: dict[str, Any]) -> dict[str, Any]:
+    """Validate and normalize auto-import configuration.
+
+    @param config Loaded config structure
+    @returns Normalized import settings ready for HTTP requests
+    """
     sub2api = config.get("sub2api")
     if not isinstance(sub2api, dict):
         raise ConfigError("config.json field sub2api must be an object")
@@ -714,6 +847,12 @@ def validate_import_config(config: dict[str, Any]) -> dict[str, Any]:
 
 
 def import_request_body(payload: dict[str, Any], skip_default_group_bind: bool) -> bytes:
+    """Build the HTTP request body for a sub2api import call.
+
+    @param payload Sub2api payload to import
+    @param skip_default_group_bind Whether default group binding should be skipped
+    @returns UTF-8 encoded JSON request body
+    """
     body = {
         "data": payload,
         "skip_default_group_bind": skip_default_group_bind,
@@ -722,6 +861,11 @@ def import_request_body(payload: dict[str, Any], skip_default_group_bind: bool) 
 
 
 def parse_error_message(raw_body: bytes) -> str:
+    """Extract a readable error message from an HTTP response body.
+
+    @param raw_body Raw HTTP response body
+    @returns Best-effort error message string
+    """
     if not raw_body:
         return "empty response"
     try:
@@ -744,6 +888,12 @@ def parse_error_message(raw_body: bytes) -> str:
 
 
 def import_payload(payload: dict[str, Any], import_settings: dict[str, Any]) -> dict[str, Any]:
+    """Import a payload into sub2api and validate the response.
+
+    @param payload Sub2api payload to import
+    @param import_settings Normalized import settings
+    @returns Response data object from sub2api
+    """
     url = import_settings["base_url"] + "/api/v1/admin/accounts/data"
     body = import_request_body(payload, import_settings["skip_default_group_bind"])
     request = urllib_request.Request(url, data=body, headers=import_settings["headers"], method="POST")
@@ -805,6 +955,15 @@ def emit_conversion_summary(
     details: list[str],
     output_dir: Path,
 ) -> None:
+    """Print the conversion summary to stderr.
+
+    @param converted Number of successfully converted files
+    @param skipped Number of skipped files
+    @param failed Number of failed files
+    @param details Detail lines for skipped or failed conversions
+    @param output_dir Output directory path
+    @returns None
+    """
     print(
         f"conversion converted={converted} skipped={skipped} failed={failed} output_dir={output_dir}",
         file=sys.stderr,
@@ -821,6 +980,15 @@ def emit_import_summary(
     failed: int,
     details: list[str],
 ) -> None:
+    """Print the import summary to stderr.
+
+    @param enabled Whether import mode was enabled
+    @param skipped_reason Reason import was skipped
+    @param success Number of successful imports
+    @param failed Number of failed imports
+    @param details Detail lines for import outcomes
+    @returns None
+    """
     if not enabled:
         print(f"import enabled=false reason={skipped_reason}", file=sys.stderr)
         return
@@ -831,8 +999,18 @@ def emit_import_summary(
 
 
 def run(argv: Sequence[str]) -> int:
+    """Run the converter CLI workflow end to end.
+
+    @param argv Raw command-line arguments without the program name
+    @returns Process exit code
+    """
     args = parse_args(argv)
     input_path, output_dir, config_path, merge_output_path = resolve_paths(args)
+    try:
+        file_regex = compile_file_regex(args.file_regex)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
 
     try:
         config, created = load_config(config_path)
@@ -851,9 +1029,15 @@ def run(argv: Sequence[str]) -> int:
         return 1
 
     excluded_paths = [merge_output_path] if merge_output_path is not None else []
-    files = list(iter_input_files(input_path, excluded_paths=excluded_paths))
+    files = list(iter_input_files(input_path, excluded_paths=excluded_paths, file_regex=file_regex))
     if not files:
-        print(f"no JSON files found in input path: {input_path}", file=sys.stderr)
+        if args.file_regex:
+            print(
+                f"no JSON files matched --file-regex in input path: {input_path} regex={args.file_regex}",
+                file=sys.stderr,
+            )
+        else:
+            print(f"no JSON files found in input path: {input_path}", file=sys.stderr)
         return 1
 
     exported_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -970,6 +1154,10 @@ def run(argv: Sequence[str]) -> int:
 
 
 def main() -> None:
+    """Program entry point.
+
+    @returns None
+    """
     sys.exit(run(sys.argv[1:]))
 
 

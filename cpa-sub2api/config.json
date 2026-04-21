@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "sub2api": {
+    "auto_import": false,
+    "base_url": "",
+    "auth_mode": "admin_api_key",
+    "admin_api_key": "",
+    "bearer_token": "",
+    "timeout_seconds": 30,
+    "verify_tls": true,
+    "skip_default_group_bind": true
+  }
+}

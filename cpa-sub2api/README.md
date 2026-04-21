@@ -8,7 +8,7 @@
 |---|---|---|
 | `scanner.py` | Python | 扫描 CLIProxyAPI/Codex auth JSON，检查 401、quota exceeded、unlimited |
 | `sub2api_scanner.py` | Python | 扫描 `sub2api_accounts_import*.json` 中的账号状态 |
-| `cpa2sub2api.py` | Python | 把本地 token JSON 批量转换成 `sub2api_accounts_import.json` |
+| `cpa2sub2api.py` | Python | 把本地 token JSON 批量转换成 sub2api 导入 JSON，支持合并输出、正则筛选、可选自动导入 |
 | `refresh_token.py` | Python | 通过管理端 API 批量刷新 Codex auth token，并回写本地 auth 文件 |
 | `refresh_token.txt` | PowerShell | Windows 版原始刷新脚本，含计划任务安装/卸载能力 |
 
@@ -102,37 +102,76 @@ python3 sub2api_scanner.py --input ./sub2api_accounts_import.json --output-json
 
 用途：
 - 扫描本地 token JSON 文件
-- 批量生成 Sub2API 可导入的 `sub2api-data` JSON
+- 批量生成 Sub2API 可导入 JSON
+- 支持逐文件输出、单文件合并输出
+- 支持通过正则筛选目录下要处理的文件
+- 可选直接调用 sub2api 管理端接口导入
 
 常用命令：
 
 ```bash
-python3 cpa2sub2api.py -i . -o sub2api_accounts_import.json
+python3 cpa2sub2api.py ./group-5 --output-dir ./out --no-import
 ```
 
 ```bash
-python3 cpa2sub2api.py -i . --recursive --include 'token_*.json'
+python3 cpa2sub2api.py ./group-5 --output-dir ./out --merge --no-import
 ```
 
 ```bash
-python3 cpa2sub2api.py -i . --name-source email
+python3 cpa2sub2api.py ./group-5 --merge-output ./all-in-one.json --no-import
 ```
 
 ```bash
-python3 cpa2sub2api.py -i . --name-source index --name-prefix acc
+python3 cpa2sub2api.py . --file-regex '^group-5/.+\.json$' --merge --no-import
+```
+
+```bash
+python3 cpa2sub2api.py . --file-regex 'bakki.*\.json$' --merge --no-import
 ```
 
 主要参数：
-- `-i, --input`：输入目录
-- `-o, --output`：输出文件，默认 `sub2api_accounts_import.json`
-- `--include`：输入文件匹配规则，默认 `token_*.json`
-- `--exclude`：排除文件匹配规则，可重复传入
-- `--recursive`：递归扫描
-- `--platform`：账号平台，默认 `openai`
-- `--account-type`：账号类型，默认 `oauth`
-- `--concurrency`：默认并发值
-- `--priority`：默认优先级
-- `--name-source`：账号名称来源，可选 `email`、`filename`、`index`
+- `input_path`：输入文件或目录；不传时默认使用脚本同级 `cpa_token`
+- `--output-dir`：逐文件输出目录；默认使用脚本同级 `sub2api_token`
+- `--merge`：把所有转换结果合并到 `--output-dir/sub2api-merged.json`
+- `--merge-output`：自定义合并输出文件路径
+- `--file-regex`：目录模式下只处理正则命中的 `.json` 文件；同时匹配相对路径和文件名
+- `--config`：配置文件路径；默认使用脚本同级 `config.json`
+- `--strict`：遇到第一个非法或不支持的输入文件时立即退出
+- `--no-import`：只转换，不执行 sub2api 自动导入
+
+正则筛选说明：
+- `--file-regex '^group-5/.+\.json$'`：只处理 `group-5` 目录下的 JSON
+- `--file-regex '@deg\.hush2u\.com\.json$'`：只处理指定邮箱域名结尾的文件
+- `--file-regex 'bakki.*\.json$'`：只处理文件名中包含 `bakki` 的文件
+
+自动导入配置：
+- 首次运行时，如果 `config.json` 不存在，脚本会自动生成模板
+- 开启自动导入时，需要把 `sub2api.auto_import` 设为 `true`
+- 同时配置 `sub2api.base_url` 和鉴权字段
+
+示例配置：
+
+```json
+{
+  "version": 1,
+  "sub2api": {
+    "auto_import": true,
+    "base_url": "http://127.0.0.1:8000",
+    "auth_mode": "admin_api_key",
+    "admin_api_key": "your-admin-key",
+    "bearer_token": "",
+    "timeout_seconds": 30,
+    "verify_tls": true,
+    "skip_default_group_bind": true
+  }
+}
+```
+
+说明：
+- 输入路径是目录时，会递归扫描其中的 `*.json`
+- 输入路径是单文件时，只处理这一份文件
+- 使用 `--merge` 或 `--merge-output` 时，逐文件输出会被跳过
+- 生成结果默认是 sub2api 当前可导入的账号结构，而不是旧版 `sub2api_accounts_import.json` 命名风格
 
 ## refresh_token.py
 
