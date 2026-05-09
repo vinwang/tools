@@ -397,8 +397,6 @@ def convert_codex(data: dict[str, Any], source_path: Path) -> dict[str, Any]:
     refresh_token = ensure_string(data, "refresh_token")
     if not access_token:
         raise ConversionError("codex access_token is required")
-    if not refresh_token:
-        raise ConversionError("codex refresh_token is required")
 
     id_token = ensure_string(data, "id_token")
     claims: dict[str, Any] = {}
@@ -422,9 +420,9 @@ def convert_codex(data: dict[str, Any], source_path: Path) -> dict[str, Any]:
             if isinstance(first, dict):
                 organization_id = str(first.get("id", "")).strip()
 
-    credentials: dict[str, Any] = {
-        "refresh_token": refresh_token,
-    }
+    credentials: dict[str, Any] = {}
+    if refresh_token:
+        credentials["refresh_token"] = refresh_token
     if access_token:
         credentials["access_token"] = access_token
     if id_token:

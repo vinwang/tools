@@ -6,7 +6,7 @@
 
 | 目录 | 用途 | 关键内容 |
 |------|------|----------|
-| [cpa-sub2api](./cpa-sub2api/) | CPA 账号转换与导入工具 | `cpa2subapi.py`、sub2api 导入样例、CPA 源账号样例 |
+| [cpa-sub2api](./cpa-sub2api/) | CPA 账号转换与导入工具 | 目录说明、转换脚本、扫描脚本、token 刷新脚本 |
 | [codex](./codex/) | Codex 项目级规则 | `AGENTS.md`，约束回复语言、调试优先、工程基线与技能路由 |
 | [iflow](./iflow/) | iFlow CLI 配置 | `IFLOW.md`、`settings.json`、Agents、Commands、Hooks、Skills |
 | [openclaw](./openclaw/) | OpenClaw 多 Agent 协作配置 | `openclaw.json`、团队文档、主工作区与各角色工作区 |
@@ -24,70 +24,11 @@
 
 ### CPA -> sub2api
 
-`cpa-sub2api/cpa2subapi.py` 用于把 CPA 导出的账号 JSON 转成 sub2api 可导入格式，并支持单文件输出、目录批量输出、合并输出、可选自动导入。
+`cpa-sub2api/` 用于维护 CPA 账号到 sub2api 导入格式的转换、扫描与刷新脚本。
 
-常用命令：
+详细脚本用法见：
 
-```powershell
-python D:\www\idea\iflow-tools\cpa-sub2api\cpa2subapi.py `
-  D:\www\idea\iflow-tools\cpa-sub2api\group-5 `
-  --output-dir D:\www\idea\iflow-tools\cpa-sub2api\out `
-  --no-import
-```
-
-```powershell
-python D:\www\idea\iflow-tools\cpa-sub2api\cpa2subapi.py `
-  D:\www\idea\iflow-tools\cpa-sub2api\group-5 `
-  --output-dir D:\www\idea\iflow-tools\cpa-sub2api\out `
-  --merge `
-  --no-import
-```
-
-```powershell
-python D:\www\idea\iflow-tools\cpa-sub2api\cpa2subapi.py `
-  D:\www\idea\iflow-tools\cpa-sub2api\group-5 `
-  --merge-output D:\www\idea\iflow-tools\cpa-sub2api\all-in-one.json `
-  --no-import
-```
-
-参数说明：
-
-- `input_path`：输入文件或目录；不传时默认使用脚本同级 `cpa_token`
-- `--output-dir`：逐文件输出目录；默认使用脚本同级 `sub2api_token`
-- `--merge`：把所有结果合并到 `--output-dir\sub2api-merged.json`
-- `--merge-output`：自定义合并输出文件路径
-- `--no-import`：只转换，不调用 sub2api 导入接口
-- `--strict`：遇到第一个非法输入时立即退出
-
-自动导入配置：
-
-- 首次运行如果不存在配置文件，会自动生成 `cpa-sub2api/config.json`
-- 开启自动导入时，需要设置 `sub2api.auto_import=true`
-- 同时配置 `base_url` 和鉴权信息
-
-示例配置：
-
-```json
-{
-  "version": 1,
-  "sub2api": {
-    "auto_import": true,
-    "base_url": "http://127.0.0.1:8000",
-    "auth_mode": "admin_api_key",
-    "admin_api_key": "your-admin-key",
-    "bearer_token": "",
-    "timeout_seconds": 30,
-    "verify_tls": true,
-    "skip_default_group_bind": true
-  }
-}
-```
-
-帮助命令：
-
-```powershell
-python D:\www\idea\iflow-tools\cpa-sub2api\cpa2subapi.py --help
-```
+- [cpa-sub2api/README.md](./cpa-sub2api/README.md)
 
 ### Codex
 
@@ -174,7 +115,7 @@ iflow
 
 | 文件 | 说明 |
 |------|------|
-| [cpa-sub2api/cpa2subapi.py](./cpa-sub2api/cpa2subapi.py) | CPA 账号 JSON 转 sub2api 导入格式，并支持合并输出和自动导入 |
+| [cpa-sub2api/README.md](./cpa-sub2api/README.md) | CPA 账号转换、扫描、刷新脚本的目录说明与完整用法 |
 | [codex/AGENTS.md](./codex/AGENTS.md) | Codex 的全局代理规则模板 |
 | [iflow/IFLOW.md](./iflow/IFLOW.md) | iFlow 的核心工作规范与路由约束 |
 | [iflow/settings.json](./iflow/settings.json) | iFlow 的模型、MCP、Hook 与编辑器配置 |
