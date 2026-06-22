@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mac 高级开发环境标准方案</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      line-height: 1.7;
+      padding: 40px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: auto;
+    }
+
+    h1 {
+      font-size: 42px;
+      margin-bottom: 20px;
+      color: #38bdf8;
+    }
+
+    h2 {
+      margin-top: 50px;
+      margin-bottom: 20px;
+      color: #22c55e;
+      border-left: 6px solid #22c55e;
+      padding-left: 14px;
+      font-size: 30px;
+    }
+
+    h3 {
+      margin-top: 30px;
+      margin-bottom: 12px;
+      color: #facc15;
+      font-size: 22px;
+    }
+
+    p {
+      margin-bottom: 14px;
+      color: #cbd5e1;
+    }
+
+    .card {
+      background: #111827;
+      border: 1px solid #1e293b;
+      border-radius: 16px;
+      padding: 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    }
+
+    pre {
+      background: #020617;
+      color: #38bdf8;
+      padding: 18px;
+      border-radius: 12px;
+      overflow-x: auto;
+      margin-top: 12px;
+      margin-bottom: 20px;
+      border: 1px solid #1e293b;
+    }
+
+    code {
+      font-family: Menlo, Monaco, monospace;
+      font-size: 14px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+      margin-bottom: 30px;
+    }
+
+    th, td {
+      border: 1px solid #334155;
+      padding: 14px;
+      text-align: left;
+    }
+
+    th {
+      background: #1e293b;
+      color: #38bdf8;
+    }
+
+    tr:nth-child(even) {
+      background: #0f172a;
+    }
+
+    .tag {
+      display: inline-block;
+      background: #1d4ed8;
+      color: white;
+      padding: 4px 10px;
+      border-radius: 999px;
+      margin-right: 8px;
+      margin-top: 8px;
+      font-size: 13px;
+    }
+
+    .tip {
+      background: rgba(34,197,94,0.1);
+      border-left: 5px solid #22c55e;
+      padding: 16px;
+      border-radius: 10px;
+      margin-top: 20px;
+      color: #bbf7d0;
+    }
+
+    .warn {
+      background: rgba(239,68,68,0.1);
+      border-left: 5px solid #ef4444;
+      padding: 16px;
+      border-radius: 10px;
+      margin-top: 20px;
+      color: #fecaca;
+    }
+
+    ul {
+      padding-left: 22px;
+      margin-bottom: 20px;
+    }
+
+    li {
+      margin-bottom: 10px;
+    }
+
+    .header {
+      margin-bottom: 50px;
+    }
+
+    .subtitle {
+      color: #94a3b8;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <div class="header">
+      <h1>Mac 高级开发环境标准方案</h1>
+      <p class="subtitle">
+        适用于 Java / PHP / Python / Node.js / MySQL / PostgreSQL / Redis / Hyperf / Laravel 多语言开发环境。
+      </p>
+
+      <div style="margin-top:20px;">
+        <span class="tag">Apple Silicon</span>
+        <span class="tag">Homebrew</span>
+        <span class="tag">PHP 多版本</span>
+        <span class="tag">Python 多版本</span>
+        <span class="tag">Java</span>
+        <span class="tag">Node.js</span>
+        <span class="tag">Redis</span>
+      </div>
+    </div>
+
+    <h2>一、整体架构方案</h2>
+
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>组件</th>
+            <th>推荐方案</th>
+            <th>原因</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>PHP 多版本</td>
+            <td>Homebrew</td>
+            <td>灵活、稳定、适合 Swoole/Loader</td>
+          </tr>
+          <tr>
+            <td>Python 多版本</td>
+            <td>pyenv</td>
+            <td>版本隔离彻底，虚拟环境友好</td>
+          </tr>
+          <tr>
+            <td>Java 多版本</td>
+            <td>jenv</td>
+            <td>切换方便</td>
+          </tr>
+          <tr>
+            <td>Node 多版本</td>
+            <td>fnm</td>
+            <td>超轻量、启动快</td>
+          </tr>
+          <tr>
+            <td>MySQL</td>
+            <td>Homebrew</td>
+            <td>省内存</td>
+          </tr>
+          <tr>
+            <td>PostgreSQL</td>
+            <td>Homebrew</td>
+            <td>稳定</td>
+          </tr>
+          <tr>
+            <td>Redis</td>
+            <td>Homebrew</td>
+            <td>简单可靠</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="tip">
+        该方案比 Docker Desktop 节省大量内存，非常适合 Mac 开发环境。
+      </div>
+    </div>
+
+    <h2>二、安装 Homebrew</h2>
+
+    <div class="card">
+      <pre><code>/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+echo 'eval "$(/opt/homebrew/bin/brew shellenv zsh)"' >> ~/.zshrc
+
+source ~/.zshrc</code></pre>
+    </div>
+
+    <h2>三、PHP 多版本安装</h2>
+
+    <div class="card">
+      <h3>安装 PHP 仓库</h3>
+      <pre><code>brew tap shivammathur/php</code></pre>
+
+      <h3>安装多个 PHP 版本</h3>
+      <pre><code>brew install shivammathur/php/php@8.0
+brew install php@8.1
+brew install php@8.3</code></pre>
+
+      <h3>查看版本</h3>
+      <pre><code>brew list | grep php</code></pre>
+
+      <h3>切换 PHP</h3>
+      <pre><code>brew unlink php@8.3
+brew link --overwrite --force php@8.0</code></pre>
+
+      <h3>验证</h3>
+      <pre><code>php -v</code></pre>
+    </div>
+
+    <h2>四、PHP 配置与扩展安装</h2>
+
+    <div class="card">
+      <h3>查看当前 PHP 版本</h3>
+      <pre><code>php -v</code></pre>
+
+      <h3>查看 PHP 配置文件</h3>
+      <pre><code>php --ini</code></pre>
+
+      <h3>查看 php.ini 路径</h3>
+      <pre><code>Loaded Configuration File:
+/opt/homebrew/etc/php/8.0/php.ini</code></pre>
+
+      <h3>查看 conf.d 扩展目录</h3>
+      <pre><code>/opt/homebrew/etc/php/8.0/conf.d</code></pre>
+
+      <h3>查看 PHP 扩展目录</h3>
+      <pre><code>php-config --extension-dir</code></pre>
+
+      <h3>查看当前已加载扩展</h3>
+      <pre><code>php -m</code></pre>
+
+      <h3>查看单个扩展信息</h3>
+      <pre><code>php --ri swoole
+php --ri redis</code></pre>
+
+      <h3>安装编译依赖</h3>
+      <pre><code>brew install autoconf
+brew install automake
+brew install libtool
+brew install pcre2
+brew install openssl</code></pre>
+
+      <h3>查看 pecl 对应 PHP 版本</h3>
+      <pre><code>pecl version</code></pre>
+
+      <h3>安装 Swoole4（PHP8.0 推荐）</h3>
+      <pre><code>pecl install swoole-4.8.13</code></pre>
+
+      <h3>安装 Redis 扩展</h3>
+      <pre><code>pecl install redis</code></pre>
+
+      <h3>安装 Xdebug</h3>
+      <pre><code>pecl install xdebug</code></pre>
+
+      <h3>安装 MongoDB 扩展</h3>
+      <pre><code>pecl install mongodb</code></pre>
+
+      <h3>推荐扩展安装选项</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>扩展功能</th>
+            <th>推荐选项</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>igbinary</td>
+            <td>no</td>
+          </tr>
+          <tr>
+            <td>zstd</td>
+            <td>no</td>
+          </tr>
+          <tr>
+            <td>lz4</td>
+            <td>no</td>
+          </tr>
+          <tr>
+            <td>msgpack</td>
+            <td>no</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>扩展配置方式（推荐）</h3>
+      <pre><code>nano /opt/homebrew/etc/php/8.0/conf.d/ext-redis.ini</code></pre>
+
+      <p>写入：</p>
+
+      <pre><code>extension=redis</code></pre>
+
+      <h3>Swoole Loader 配置</h3>
+      <pre><code>nano /opt/homebrew/etc/php/8.0/php.ini</code></pre>
+
+      <p>追加：</p>
+
+      <pre><code>extension=swoole_loader_80_nts_arm64.so</code></pre>
+
+      <h3>验证扩展是否成功加载</h3>
+      <pre><code>php -m | grep swoole
+php -m | grep redis</code></pre>
+
+      <div class="warn">
+        不同 PHP 版本的扩展不能混用，例如 PHP8.0 扩展不能用于 PHP8.3。
+      </div>
+
+      <div class="tip">
+        推荐使用 conf.d 独立管理扩展，而不是全部写进 php.ini。
+      </div>
+    </div>
+
+    <h2>五、MySQL 安装</h2>
+
+    <div class="card">
+      <h3>安装</h3>
+      <pre><code>brew install mysql</code></pre>
+
+      <h3>启动</h3>
+      <pre><code>brew services start mysql</code></pre>
+
+      <h3>登录</h3>
+      <pre><code>mysql -uroot</code></pre>
+
+      <h3>查看 MySQL 状态</h3>
+      <pre><code>brew services list</code></pre>
+
+      <h3>登录 MySQL</h3>
+      <pre><code>mysql -uroot -p</code></pre>
+
+      <h3>设置 root 密码</h3>
+      <pre><code>ALTER USER 'root'@'localhost'
+IDENTIFIED BY 'Root@123456';</code></pre>
+
+      <h3>查看密码策略</h3>
+      <pre><code>SHOW VARIABLES LIKE 'validate_password%';</code></pre>
+
+      <h3>降低密码复杂度（开发环境）</h3>
+      <pre><code>SET GLOBAL validate_password.policy=LOW;
+SET GLOBAL validate_password.length=6;</code></pre>
+
+      <h3>创建开发用户</h3>
+      <pre><code>CREATE USER 'dev'@'%'
+IDENTIFIED BY 'Dev@123456';
+
+GRANT ALL PRIVILEGES ON *.*
+TO 'dev'@'%' WITH GRANT OPTION;
+
+FLUSH PRIVILEGES;</code></pre>
+
+      <h3>创建数据库</h3>
+      <pre><code>CREATE DATABASE shop_db
+DEFAULT CHARACTER SET utf8mb4
+COLLATE utf8mb4_unicode_ci;</code></pre>
+
+      <h3>查看用户</h3>
+      <pre><code>SELECT user,host FROM mysql.user;</code></pre>
+
+      <h3>查看数据库</h3>
+      <pre><code>SHOW DATABASES;</code></pre>
+    </div>
+
+    <h2>六、PostgreSQL 安装</h2>
+
+    <div class="card">
+      <h3>安装 PostgreSQL</h3>
+      <pre><code>brew install postgresql@17</code></pre>
+
+      <h3>启动 PostgreSQL</h3>
+      <pre><code>brew services start postgresql@17</code></pre>
+
+      <h3>查看状态</h3>
+      <pre><code>brew services list</code></pre>
+
+      <h3>进入 PostgreSQL</h3>
+      <pre><code>psql postgres</code></pre>
+
+      <h3>创建用户（推荐）</h3>
+      <pre><code>CREATE ROLE dev
+WITH LOGIN
+PASSWORD 'Dev@123456'
+CREATEDB;</code></pre>
+
+      <h3>创建数据库</h3>
+      <pre><code>CREATE DATABASE shop_db
+OWNER dev;</code></pre>
+
+      <h3>授权</h3>
+      <pre><code>GRANT ALL PRIVILEGES
+ON DATABASE shop_db
+TO dev;</code></pre>
+
+      <h3>查看用户</h3>
+      <pre><code>\du</code></pre>
+
+      <h3>查看数据库</h3>
+      <pre><code>\l</code></pre>
+
+      <h3>退出 PostgreSQL</h3>
+      <pre><code>\q</code></pre>
+
+      <div class="tip">
+        PostgreSQL 推荐为每个项目创建独立数据库和用户。
+      </div>
+    </div>
+
+    <h2>七、Redis 安装</h2>
+
+    <div class="card">
+      <h3>安装</h3>
+      <pre><code>brew install redis</code></pre>
+
+      <h3>启动</h3>
+      <pre><code>brew services start redis</code></pre>
+
+      <h3>设置密码</h3>
+      <pre><code>nano /opt/homebrew/etc/redis.conf</code></pre>
+
+      <p>修改：</p>
+
+      <pre><code>requirepass 123456</code></pre>
+
+      <h3>重启 Redis</h3>
+      <pre><code>brew services restart redis</code></pre>
+    </div>
+
+    <h2>八、Java 多版本管理（推荐 jenv）</h2>
+
+    <div class="card">
+      <h3>安装 jenv</h3>
+      <pre><code>brew install jenv</code></pre>
+
+      <h3>配置 zsh</h3>
+      <pre><code>echo 'export PATH="$HOME/.jenv/bin:$PATH"' >> ~/.zshrc
+
+echo 'eval "$(jenv init -)"' >> ~/.zshrc
+
+source ~/.zshrc</code></pre>
+
+      <h3>安装多个 JDK</h3>
+      <pre><code>brew install openjdk@17
+brew install openjdk@21</code></pre>
+
+      <h3>配置 JAVA_HOME</h3>
+      <pre><code>sudo ln -sfn /opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk-17.jdk
+
+sudo ln -sfn /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk-21.jdk</code></pre>
+
+      <h3>添加到 jenv</h3>
+      <pre><code>jenv add /Library/Java/JavaVirtualMachines/openjdk-17.jdk/Contents/Home
+
+jenv add /Library/Java/JavaVirtualMachines/openjdk-21.jdk/Contents/Home</code></pre>
+
+      <h3>查看已安装 Java</h3>
+      <pre><code>jenv versions</code></pre>
+
+      <h3>全局切换 Java</h3>
+      <pre><code>jenv global 17</code></pre>
+
+      <h3>项目级切换 Java</h3>
+      <pre><code>jenv local 21</code></pre>
+
+      <h3>验证</h3>
+      <pre><code>java -version
+
+mvn -v</code></pre>
+
+      <div class="tip">
+        jenv 比 SDKMAN 更适合长期本地开发环境管理，并且与 Homebrew 更兼容。
+      </div>
+    </div>
+
+    <h2>九、Node.js 多版本管理</h2>
+
+    <div class="card">
+      <h3>安装 fnm</h3>
+      <pre><code>brew install fnm</code></pre>
+
+      <h3>配置</h3>
+      <pre><code>echo 'eval "$(fnm env --use-on-cd)"' >> ~/.zshrc
+source ~/.zshrc</code></pre>
+
+      <h3>安装 Node</h3>
+      <pre><code>fnm install 20
+fnm install 22</code></pre>
+
+      <h3>查看已安装 Node</h3>
+      <pre><code>fnm list</code></pre>
+
+      <h3>切换 Node</h3>
+      <pre><code>fnm use 22</code></pre>
+
+      <h3>验证</h3>
+      <pre><code>node -v</code></pre>
+    </div>
+
+    <h2>十、Python 多版本管理（推荐 pyenv）</h2>
+
+    <div class="card">
+      <h3>安装 pyenv</h3>
+      <pre><code>brew install pyenv</code></pre>
+
+      <h3>配置 zsh</h3>
+      <pre><code>echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.zshrc
+echo 'export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.zshrc
+echo 'eval "$(pyenv init -)"' >> ~/.zshrc
+
+source ~/.zshrc</code></pre>
+
+      <h3>查看可安装的 Python 版本</h3>
+      <pre><code>pyenv install --list | grep "^\s*3\."</code></pre>
+
+      <h3>安装多个 Python 版本</h3>
+      <pre><code>pyenv install 3.10.14
+pyenv install 3.11.9
+pyenv install 3.12.4</code></pre>
+
+      <h3>查看已安装版本</h3>
+      <pre><code>pyenv versions</code></pre>
+
+      <h3>设置全局默认版本</h3>
+      <pre><code>pyenv global 3.12.4</code></pre>
+
+      <h3>项目级切换（在项目目录下执行）</h3>
+      <pre><code>pyenv local 3.10.14</code></pre>
+
+      <p>会在当前目录生成 <code>.python-version</code> 文件，进入该目录后自动切换。</p>
+
+      <h3>验证</h3>
+      <pre><code>python --version
+which python</code></pre>
+
+      <h3>虚拟环境管理（推荐 venv）</h3>
+      <pre><code># 创建虚拟环境
+python -m venv .venv
+
+# 激活
+source .venv/bin/activate
+
+# 退出
+deactivate</code></pre>
+
+      <h3>pip 加速（国内镜像）</h3>
+      <pre><code>pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple</code></pre>
+
+      <h3>常用包安装示例</h3>
+      <pre><code>pip install requests numpy pandas fastapi uvicorn</code></pre>
+
+      <div class="tip">
+        推荐每个项目使用独立虚拟环境（.venv），不要在全局 Python 下直接 pip install。
+      </div>
+
+      <div class="warn">
+        不要使用系统自带的 Python（/usr/bin/python3），避免影响系统工具。
+      </div>
+    </div>
+
+    <h2>十一、项目自动切换 PHP 版本（推荐）</h2>
+
+    <div class="card">
+      <h3>安装 direnv</h3>
+      <pre><code>brew install direnv</code></pre>
+
+      <h3>配置</h3>
+      <pre><code>echo 'eval "$(direnv hook zsh)"' >> ~/.zshrc
+source ~/.zshrc</code></pre>
+
+      <h3>项目目录创建 .envrc</h3>
+      <pre><code>export PATH="/opt/homebrew/opt/php@8.0/bin:$PATH"
+export PATH="/opt/homebrew/opt/php@8.0/sbin:$PATH"</code></pre>
+
+      <h3>启用</h3>
+      <pre><code>direnv allow</code></pre>
+
+      <div class="tip">
+        进入项目目录后会自动切换 PHP 版本。
+      </div>
+    </div>
+
+    <h2>十二、推荐项目版本搭配</h2>
+
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>项目类型</th>
+            <th>推荐 PHP</th>
+            <th>推荐扩展</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>老 Hyperf</td>
+            <td>PHP8.0</td>
+            <td>Swoole4</td>
+          </tr>
+          <tr>
+            <td>Laravel</td>
+            <td>PHP8.3</td>
+            <td>Redis/Xdebug</td>
+          </tr>
+          <tr>
+            <td>ThinkPHP</td>
+            <td>PHP8.1</td>
+            <td>Redis</td>
+          </tr>
+          <tr>
+            <td>Loader 项目</td>
+            <td>PHP8.0</td>
+            <td>swoole_loader_80</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>十三、推荐开发工具</h2>
+
+    <div class="card">
+      <ul>
+        <li>IDE：IntelliJ IDEA / PhpStorm / VSCode</li>
+        <li>数据库：Navicat / TablePlus</li>
+        <li>API 调试：Apifox / Postman</li>
+        <li>终端：iTerm2</li>
+        <li>Shell：zsh + oh-my-zsh</li>
+      </ul>
+    </div>
+
+    <h2>十四、最佳实践</h2>
+
+    <div class="card">
+      <ul>
+        <li>不要使用 sudo 启动 brew services</li>
+        <li>不同 PHP 项目使用不同 PHP 版本</li>
+        <li>扩展按 PHP 版本分别安装</li>
+        <li>数据库统一使用 brew 管理</li>
+        <li>尽量避免 Docker Desktop 常驻</li>
+        <li>Hyperf/Swoole 项目固定 PHP8.0 + Swoole4</li>
+        <li>Laravel/新项目推荐 PHP8.3</li>
+        <li>Node 项目优先使用 Node22 LTS</li>
+        <li>Python 每个项目使用独立虚拟环境（.venv），通过 pyenv local 固定版本</li>
+        <li>MySQL/PostgreSQL/Redis 使用当前用户启动</li>
+      </ul>
+
+      <div class="tip">
+        这是目前 Mac 开发者最省内存、最稳定、最适合 Java + PHP + Node 全栈开发的方案之一。
+      </div>
+    </div>
+
+    <h2>十五、推荐目录结构</h2>
+
+    <div class="card">
+      <pre><code>~/Code
+├── java
+├── php
+├── python
+├── node
+├── golang
+└── tools</code></pre>
+
+      <h3>PHP 项目示例</h3>
+      <pre><code>~/Code/php/hyperf-old
+~/Code/php/laravel-admin
+~/Code/php/crmeb</code></pre>
+
+      <h3>Java 项目示例</h3>
+      <pre><code>~/Code/java/shop-api
+~/Code/java/erp-system</code></pre>
+    </div>
+
+    <h2>十六、推荐开发环境资源占用</h2>
+
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>方案</th>
+            <th>内存占用</th>
+            <th>推荐指数</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Docker Desktop 全家桶</td>
+            <td>6GB ~ 12GB</td>
+            <td>⭐</td>
+          </tr>
+          <tr>
+            <td>Homebrew 原生方案</td>
+            <td>1GB ~ 2GB</td>
+            <td>⭐⭐⭐⭐⭐</td>
+          </tr>
+          <tr>
+            <td>Laravel Herd</td>
+            <td>1GB 左右</td>
+            <td>⭐⭐⭐</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="warn">
+        你当前这种 Java + Hyperf + PostgreSQL + AI 开发场景，不推荐长期使用 Docker Desktop。
+      </div>
+    </div>
+
+  </div>
+</body>
+</html>
